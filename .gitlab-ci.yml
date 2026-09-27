@@ -1,0 +1,15 @@
+# Publishes ExerciseForge to GitLab Pages. The app is static, so this only copies files into public/.
+# Turn on Pages access control (Settings → General → Visibility → Pages: "Only project members")
+# so only people who can sign in to the project can open the site.
+
+pages:
+  stage: deploy
+  image: alpine:latest
+  script:
+    - mkdir -p public
+    - cp -r index.html styles.css js fonts vendor public/
+  artifacts:
+    paths:
+      - public
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH

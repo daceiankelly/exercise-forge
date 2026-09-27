@@ -1,0 +1,987 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>ExerciseForge</title>
+<script>
+  // Apply the saved theme before first paint to avoid a flash.
+  try { const t = localStorage.getItem("exforge.theme"); if (t === "light" || t === "dark") document.documentElement.dataset.theme = t; } catch {}
+</script>
+<link rel="stylesheet" href="fonts/fonts.css">
+<link rel="stylesheet" href="vendor/leaflet/leaflet.css">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div class="marking"><span class="ms">shield</span>Exercise · Exercise · Exercise<span class="long">&nbsp;— fictional scenario for training use only</span></div>
+
+<header class="top-app-bar" id="appBar">
+  <button class="icon-btn" id="drawerBtn" aria-label="Open navigation"><span class="ms">menu</span></button>
+  <div class="brand">
+    <div class="brand-mark"><span class="ms">military_tech</span></div>
+    <span class="title-large">ExerciseForge</span>
+  </div>
+  <div class="spacer"></div>
+  <button id="noDuffBtn" class="btn noduff hidden" data-tip="Declare a real-world emergency"><span class="ms">emergency_home</span>NO DUFF</button>
+  <button id="lockChip" class="chip assist lock hidden" data-tip="Locked to a cell. Click to unlock."></button>
+  <span id="syncChip" class="chip assist hidden"></span>
+  <span id="status" class="chip assist"></span>
+  <button class="icon-btn" id="themeBtn" aria-label="Theme" data-tip="Theme"><span class="ms" id="themeIcon">brightness_auto</span></button>
+  <button class="icon-btn" id="settingsBtn" aria-label="Settings" data-tip="Settings"><span class="ms">settings</span></button>
+</header>
+<div id="alertBar" class="alert-bar"></div>
+
+<div class="shell">
+  <nav class="drawer" id="drawer" aria-label="Exercises">
+    <button id="newBtn" class="fab"><span class="ms">add</span>New exercise</button>
+    <div class="drawer-label title-small">Exercises</div>
+    <ul id="exList" class="nav-list"></ul>
+    <div class="drawer-footer">
+      <button id="libraryBtn" class="btn text"><span class="ms">menu_book</span>Doctrine library</button>
+      <button id="importBtn" class="btn text"><span class="ms">upload_file</span>Import exercise</button>
+      <input id="importFile" type="file" accept=".json,application/json" hidden>
+    </div>
+  </nav>
+  <div class="scrim" id="scrim"></div>
+
+  <main id="main">
+    <!-- ============================================================ design -->
+    <section id="designView" class="view">
+      <div class="hero">
+        <div class="eyebrow label-large"><span class="ms">auto_awesome</span>AI-assisted exercise design</div>
+        <h1 class="headline-medium">Design a new exercise</h1>
+        <p class="body-large variant">Describe what the training audience needs to practise. The AI drafts a fictional scenario,
+          measurable objectives, a Master Scenario Events List and role-player personas for you to review and run.</p>
+      </div>
+
+      <form id="designForm" class="card lg form-card">
+        <div class="form-section">
+          <h2 class="title-small"><span class="ms">badge</span>Basics</h2>
+          <div class="grid-2">
+            <div class="field">
+              <input name="title" id="f-title" placeholder="Leave blank to let the AI name it">
+              <label for="f-title">Exercise name</label>
+            </div>
+            <div class="field select">
+              <select name="exercise_type" id="f-type">
+                <option value="TTX">Tabletop (TTX)</option>
+                <option value="CPX" selected>Command post (CPX)</option>
+                <option value="FTX">Field training (FTX)</option>
+                <option value="Wargame">Wargame</option>
+                <option value="Staff Ride">Staff ride</option>
+              </select>
+              <label for="f-type">Exercise type</label>
+            </div>
+            <div class="field">
+              <input name="echelon" id="f-echelon" value="Brigade" placeholder=" ">
+              <label for="f-echelon">Echelon</label>
+            </div>
+            <div class="field">
+              <input name="training_audience" id="f-aud" value="Brigade HQ staff" placeholder=" ">
+              <label for="f-aud">Training audience</label>
+            </div>
+          </div>
+        </div>
+
+        <div class="form-section">
+          <h2 class="title-small"><span class="ms">public</span>Domains</h2>
+          <div class="chip-set">
+            <label class="chip filter"><input type="checkbox" name="domains" value="Land" checked><span class="ms check">check</span>Land</label>
+            <label class="chip filter"><input type="checkbox" name="domains" value="Maritime"><span class="ms check">check</span>Maritime</label>
+            <label class="chip filter"><input type="checkbox" name="domains" value="Air"><span class="ms check">check</span>Air</label>
+            <label class="chip filter"><input type="checkbox" name="domains" value="Cyber/EW"><span class="ms check">check</span>Cyber / EW</label>
+            <label class="chip filter"><input type="checkbox" name="domains" value="Space"><span class="ms check">check</span>Space</label>
+            <label class="chip filter"><input type="checkbox" name="domains" value="Information"><span class="ms check">check</span>Information</label>
+            <label class="chip filter"><input type="checkbox" name="domains" value="Civil-military / HADR"><span class="ms check">check</span>Civil-military / HADR</label>
+          </div>
+        </div>
+
+        <div class="form-section">
+          <h2 class="title-small"><span class="ms">flag</span>Intent</h2>
+          <div class="field">
+            <textarea name="objectives" id="f-obj" rows="3" placeholder="e.g. Test the HQ's ability to maintain a common operating picture and plan rapidly under uncertainty"></textarea>
+            <label for="f-obj">Training objectives</label>
+          </div>
+          <div class="field">
+            <input name="setting" id="f-setting" placeholder="e.g. Littoral crisis in a fictional island nation, hybrid threat">
+            <label for="f-setting">Setting / theme</label>
+            <span class="supporting">The world is always fictional. Describe the kind of crisis, not a real place.</span>
+          </div>
+        </div>
+
+        <div class="form-section">
+          <h2 class="title-small"><span class="ms">tune</span>Scope</h2>
+          <div class="grid-3">
+            <div class="field">
+              <input name="duration_min" id="f-dur" type="number" value="240" min="30" max="4320" placeholder=" ">
+              <label for="f-dur">Duration (minutes)</label>
+            </div>
+            <div class="field">
+              <input name="inject_count" id="f-inj" type="number" value="12" min="3" max="40" placeholder=" ">
+              <label for="f-inj">Number of injects</label>
+            </div>
+            <div class="field select">
+              <select name="complexity" id="f-cx">
+                <option value="basic">Basic</option><option value="intermediate" selected>Intermediate</option><option value="advanced">Advanced</option>
+              </select>
+              <label for="f-cx">Complexity</label>
+            </div>
+          </div>
+          <div class="field">
+            <textarea name="notes" id="f-notes" rows="2" placeholder="Constraints, focus areas, things to avoid…"></textarea>
+            <label for="f-notes">Notes for planners</label>
+          </div>
+        </div>
+
+        <div class="actions end">
+          <span id="designBusy" class="progress hidden"><span class="linear"></span><span class="body-medium">Drafting scenario and MSEL — this can take a minute or two</span></span>
+          <button type="submit" class="btn filled"><span class="ms">auto_awesome</span>Generate exercise</button>
+        </div>
+      </form>
+    </section>
+
+    <!-- ============================================================ exercise -->
+    <section id="exView" class="view hidden">
+      <div class="ex-head">
+        <div class="ex-title">
+          <h1 id="exTitle" class="headline-small"></h1>
+          <div id="exMeta" class="row"></div>
+          <div id="viewSwitch" class="segmented view-switch" role="tablist" aria-label="View as"></div>
+        </div>
+        <div class="ex-controls">
+          <div class="clock"><span class="label-small">Exercise time</span><span id="clock">T+0:00</span></div>
+          <div class="segmented" role="group" aria-label="Adjust exercise clock">
+            <button class="seg-btn" data-clock="-15">−15</button>
+            <button class="seg-btn" data-clock="15">+15</button>
+            <button class="seg-btn" data-clock="60">+60</button>
+          </div>
+          <div class="field select compact-select clock-rate">
+            <select id="clockRate" aria-label="Clock speed">
+              <option value="0">Manual clock</option><option value="1">Real time</option><option value="2">2× real time</option>
+              <option value="4">4× real time</option><option value="10">10× real time</option>
+            </select>
+          </div>
+          <button id="phaseBtn" class="btn filled"></button>
+          <button id="endBtn" class="btn outlined"><span class="ms">stop_circle</span>ENDEX</button>
+          <div class="ex-actions">
+            <button id="exportBtn" class="icon-btn" aria-label="Export" data-tip="Export JSON"><span class="ms">download</span></button>
+            <button id="deleteBtn" class="icon-btn danger" aria-label="Delete" data-tip="Delete"><span class="ms">delete</span></button>
+          </div>
+        </div>
+      </div>
+
+      <nav class="tabs" role="tablist">
+        <button class="tab-btn active" data-tab="scenario"><span class="ms">description</span>Scenario</button>
+        <button class="tab-btn" data-tab="map"><span class="ms">map</span>Map</button>
+        <button class="tab-btn" data-tab="control"><span class="ms">event_list</span>Control<span id="ackBadge" class="count-badge hidden"></span></button>
+        <button class="tab-btn" data-tab="adjudicate"><span class="ms">gavel</span>Adjudication</button>
+        <button class="tab-btn" data-tab="roleplay"><span class="ms">forum</span>Role-players</button>
+        <button class="tab-btn" data-tab="log"><span class="ms">history</span>Log</button>
+        <button class="tab-btn" data-tab="aar"><span class="ms">assessment</span>AAR</button>
+        <button class="tab-btn excon-only" data-tab="cells"><span class="ms">hub</span>Cells<span id="cellsBadge" class="count-badge hidden"></span></button>
+        <button class="tab-btn" data-tab="obs"><span class="ms">visibility</span>Observations</button>
+      </nav>
+
+      <div id="tab-scenario" class="tab"></div>
+
+      <div id="tab-control" class="tab hidden">
+        <div class="toolbar">
+          <p class="body-medium variant">Due injects are highlighted. Release sends an inject; the recipient then acknowledges receipt
+            before acting on it. Unacknowledged injects are flagged once they pass the time limit.</p>
+          <div class="actions">
+            <div class="segmented" role="tablist" aria-label="MSEL view">
+              <button type="button" class="seg-btn" data-msel-view="table"><span class="ms">table_rows</span>Table</button>
+              <button type="button" class="seg-btn" data-msel-view="timeline"><span class="ms">view_timeline</span>Timeline</button>
+            </div>
+            <button type="button" id="newInjBtn" class="btn tonal excon-only"><span class="ms">add</span>New inject</button>
+          </div>
+        </div>
+        <div class="toolbar sub">
+          <div class="actions">
+            <label class="switch excon-only"><span class="label-large">Auto-release on time</span><input type="checkbox" id="autoRelease"><span class="track"></span></label>
+            <div class="field compact"><input id="ackLimit" type="number" min="1" max="120" placeholder=" "><label for="ackLimit">Ack limit (min)</label></div>
+            <label class="switch"><span class="label-large">Show completed</span><input type="checkbox" id="showDone"><span class="track"></span></label>
+          </div>
+        </div>
+        <div id="mselTimeline" class="stack hidden"></div>
+        <div id="mselTableCard" class="card table-card">
+          <div class="table-wrap"><table class="data"><thead><tr>
+            <th>ID</th><th>Time</th><th>Inject</th><th>From → To</th><th>Objectives</th><th>Status</th><th></th>
+          </tr></thead><tbody id="mselBody"></tbody></table></div>
+        </div>
+      </div>
+
+      <div id="tab-adjudicate" class="tab hidden">
+        <div class="two-col">
+          <form id="adjForm" class="card lg sticky-card">
+            <div class="card-head"><div class="avatar c0"><span class="ms">person_raised_hand</span></div>
+              <div><h3 class="title-medium">Player action</h3><div class="body-small variant">Submitted for white cell adjudication</div></div></div>
+            <div class="field">
+              <input name="actor" id="a-actor" value="Training audience" placeholder=" ">
+              <label for="a-actor">Actor</label>
+            </div>
+            <div class="field">
+              <textarea name="action" id="a-action" rows="6" required placeholder="e.g. Commander orders 2nd Bn to screen the river crossing at Orvan and requests ISR on the north bank."></textarea>
+              <label for="a-action">Action or decision</label>
+            </div>
+            <div class="adj-mode">
+              <div class="label-medium variant">Decide with</div>
+              <div class="segmented choice" role="radiogroup" aria-label="Decide with">
+                <label class="seg-btn"><input type="radio" name="mode" value="ai" checked><span class="ms check">check</span><span class="ms icon">psychology</span>AI judgement</label>
+                <label class="seg-btn"><input type="radio" name="mode" value="rules"><span class="ms check">check</span><span class="ms icon">casino</span>Combat rules + AI</label>
+              </div>
+              <span id="adjModeHint" class="body-small variant"></span>
+            </div>
+            <div id="engagePanel" class="engage hidden"></div>
+            <div id="adjLibHint" class="lib-hint body-small variant"></div>
+            <div class="actions">
+              <button class="btn filled"><span class="ms">gavel</span>Adjudicate</button>
+              <button type="button" id="logOnlyBtn" class="btn text">Log only</button>
+            </div>
+            <span id="adjBusy" class="progress hidden"><span class="linear"></span><span class="body-medium">White cell deliberating…</span></span>
+          </form>
+          <div id="adjResults" class="stack"></div>
+        </div>
+      </div>
+
+      <div id="tab-roleplay" class="tab hidden">
+        <div class="rp">
+          <div class="card role-card"><ul id="roleList" class="role-list"></ul></div>
+          <div class="card chat">
+            <div id="rpHeader" class="rp-header"></div>
+            <div id="chatLog" class="chat-log"></div>
+            <form id="chatForm" class="chat-form">
+              <textarea name="message" rows="1" placeholder="Message as the training audience — start with EXCON: to talk out of character" required></textarea>
+              <button class="icon-btn filled" aria-label="Send"><span class="ms">send</span></button>
+            </form>
+          </div>
+        </div>
+      </div>
+
+      <div id="tab-log" class="tab hidden">
+        <form id="noteForm" class="note-form">
+          <div class="field select">
+            <select name="kind" id="n-kind"><option value="note">Note</option><option value="observation">Observation</option><option value="action">Action</option></select>
+            <label for="n-kind">Type</label>
+          </div>
+          <div class="field">
+            <input name="actor" id="n-actor" value="EXCON" placeholder=" ">
+            <label for="n-actor">Author</label>
+          </div>
+          <div class="field">
+            <input name="text" id="n-text" required placeholder="What happened?">
+            <label for="n-text">Log entry</label>
+          </div>
+          <button class="btn filled"><span class="ms">add</span>Add</button>
+        </form>
+        <div class="card log-card"><ol id="logList" class="log"></ol></div>
+      </div>
+
+      <div id="tab-aar" class="tab hidden">
+        <div class="toolbar">
+          <p class="body-medium variant">The review assesses each objective using only evidence in the exercise log.</p>
+          <div class="actions">
+            <span id="aarBusy" class="progress hidden"><span class="linear"></span><span class="body-medium">Analysing the log…</span></span>
+            <button id="aarBtn" class="btn filled"></button>
+          </div>
+        </div>
+        <div id="aarReplay" class="card lg replay hidden">
+          <div class="row between">
+            <h2 class="section-title title-medium" style="margin:0"><span class="ms">slideshow</span>Map replay</h2>
+            <div class="segmented rp-views" role="tablist" aria-label="Whose picture">
+              <button type="button" class="seg-btn active" data-rp-view="all"><span class="ms">public</span>Ground truth</button>
+              <button type="button" class="seg-btn" data-rp-view="blue"><span class="ms">shield</span>BLUE's picture</button>
+              <button type="button" class="seg-btn" data-rp-view="red"><span class="ms">crisis_alert</span>RED's picture</button>
+            </div>
+          </div>
+          <div class="replay-layout">
+            <div id="aarMap" class="map replay-map"></div>
+            <aside class="replay-side">
+              <div id="rpStamp" class="rp-stamp"></div>
+              <div id="rpEvents" class="stack" style="gap:6px"></div>
+              <div id="rpSides"></div>
+            </aside>
+          </div>
+          <div class="replay-controls">
+            <button type="button" class="icon-btn" data-rp="first" aria-label="First" data-tip="First"><span class="ms">first_page</span></button>
+            <button type="button" class="icon-btn" data-rp="prev" aria-label="Previous" data-tip="Previous"><span class="ms">chevron_left</span></button>
+            <button type="button" id="rpPlay" class="icon-btn filled" aria-label="Play"><span class="ms">play_arrow</span></button>
+            <button type="button" class="icon-btn" data-rp="next" aria-label="Next" data-tip="Next"><span class="ms">chevron_right</span></button>
+            <button type="button" class="icon-btn" data-rp="last" aria-label="Last" data-tip="Last"><span class="ms">last_page</span></button>
+            <input type="range" id="rpSlider" min="0" max="0" value="0" aria-label="Replay position">
+            <select id="rpSpeed" class="rp-speed" aria-label="Speed"><option value="1">1×</option><option value="2">2×</option><option value="4">4×</option><option value="8">8×</option></select>
+          </div>
+          <div id="rpMoments" class="rp-moments"></div>
+        </div>
+        <div id="aarBody"></div>
+      </div>
+
+      <div id="tab-map" class="tab hidden">
+        <div class="map-layout">
+          <div id="exMap" class="map"></div>
+          <aside id="mapSide" class="map-side"></aside>
+        </div>
+      </div>
+
+      <div id="tab-cells" class="tab hidden"></div>
+
+      <div id="tab-obs" class="tab hidden">
+        <div class="two-col">
+          <form id="obsForm" class="card lg sticky-card">
+            <div class="card-head"><div class="avatar c2"><span class="ms">visibility</span></div>
+              <div><h3 class="title-medium">Record an observation</h3><div class="body-small variant">Evidence for the after action review</div></div></div>
+            <div class="field select">
+              <select name="objective" id="o-obj"></select>
+              <label for="o-obj">Training objective</label>
+            </div>
+            <div>
+              <div class="label-medium variant" style="margin-bottom:6px">Assessment</div>
+              <div class="segmented choice" role="radiogroup">
+                <label class="seg-btn"><input type="radio" name="rating" value="T"><span class="ms check">check</span>Trained</label>
+                <label class="seg-btn"><input type="radio" name="rating" value="P"><span class="ms check">check</span>Partly</label>
+                <label class="seg-btn"><input type="radio" name="rating" value="U"><span class="ms check">check</span>Untrained</label>
+                <label class="seg-btn"><input type="radio" name="rating" value="" checked><span class="ms check">check</span>None</label>
+              </div>
+            </div>
+            <div class="field select">
+              <select name="cellObserved" id="o-cell">
+                <option value="blue">BLUE (training audience)</option><option value="red">RED cell</option><option value="excon">EXCON / white cell</option>
+              </select>
+              <label for="o-cell">Cell observed</label>
+            </div>
+            <div class="field">
+              <textarea name="text" id="o-text" rows="4" required placeholder="What did you see? Be specific: who, what, when, and the effect."></textarea>
+              <label for="o-text">Observation</label>
+            </div>
+            <div class="field">
+              <input name="by" id="o-by" required placeholder=" ">
+              <label for="o-by">Observer</label>
+            </div>
+            <div class="actions"><button class="btn filled"><span class="ms">add</span>Record observation</button></div>
+          </form>
+          <div id="obsList" class="stack"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================================================ BLUE / RED cell view -->
+    <section id="cellView" class="view hidden">
+      <div class="ex-head">
+        <div class="ex-title">
+          <div class="row"><span id="cellBadge" class="cell-badge"></span><span id="cellPhase" class="tag"></span></div>
+          <h1 id="cellTitle" class="headline-small"></h1>
+          <div id="cellViewSwitch" class="segmented view-switch" role="tablist" aria-label="View as"></div>
+        </div>
+        <div class="clock"><span class="label-small">Exercise time</span><span id="cellClock">T+0:00</span></div>
+      </div>
+
+      <nav class="tabs cell-tabs" role="tablist">
+        <button class="tab-btn active" data-ctab="situation"><span class="ms">map</span>Situation</button>
+        <button class="tab-btn" data-ctab="inbox"><span class="ms">inbox</span>Inbox<span id="inboxBadge" class="count-badge hidden"></span></button>
+        <button class="tab-btn" data-ctab="map"><span class="ms">map</span>Map</button>
+        <button class="tab-btn" data-ctab="report"><span class="ms">outgoing_mail</span>Report</button>
+        <button class="tab-btn" data-ctab="log"><span class="ms">history</span>Log</button>
+      </nav>
+
+      <div id="cell-situation" class="ctab"></div>
+      <div id="cell-inbox" class="ctab hidden"></div>
+      <div id="cell-report" class="ctab hidden">
+        <div class="two-col">
+          <form id="reportForm" class="card lg sticky-card">
+            <div class="card-head"><div class="avatar c0"><span class="ms">outgoing_mail</span></div>
+              <div><h3 class="title-medium">Send to EXCON</h3><div class="body-small variant">Decisions, messages and requests for information</div></div></div>
+            <div class="segmented choice" role="radiogroup">
+              <label class="seg-btn"><input type="radio" name="kind" value="action" checked><span class="ms check">check</span>Decision</label>
+              <label class="seg-btn"><input type="radio" name="kind" value="message"><span class="ms check">check</span>Message</label>
+              <label class="seg-btn"><input type="radio" name="kind" value="rfi"><span class="ms check">check</span>RFI</label>
+            </div>
+            <div class="field select">
+              <select name="to" id="r-to"></select>
+              <label for="r-to">To</label>
+            </div>
+            <div class="field">
+              <textarea name="text" id="r-text" rows="5" required placeholder="e.g. Commander orders 2nd Bn to screen the Orvan crossing and requests ISR on the north bank."></textarea>
+              <label for="r-text">Content</label>
+            </div>
+            <div class="field">
+              <input name="by" id="r-by" required placeholder=" ">
+              <label for="r-by">From (appointment)</label>
+            </div>
+            <div class="actions"><button class="btn filled"><span class="ms">send</span>Send</button></div>
+          </form>
+          <div id="reportList" class="stack"></div>
+        </div>
+      </div>
+      <div id="cell-map" class="ctab hidden">
+        <div class="map-layout">
+          <div id="cellMap" class="map"></div>
+          <aside id="cellMapSide" class="map-side"></aside>
+        </div>
+      </div>
+      <div id="cell-log" class="ctab hidden"><div class="card log-card"><ol id="cellLogList" class="log"></ol></div></div>
+    </section>
+  </main>
+</div>
+
+<!-- ============================================================ settings dialog -->
+<dialog id="settingsDlg">
+  <form id="settingsForm" class="dialog-body">
+    <div class="dialog-head" tabindex="-1" autofocus>
+      <span class="ms">tune</span>
+      <h2 class="headline-small">Settings</h2>
+    </div>
+
+    <div class="dlg-tabs" role="tablist">
+      <button type="button" class="tab-btn active" data-stab="ai"><span class="ms">psychology</span>AI provider</button>
+      <button type="button" class="tab-btn" data-stab="collab"><span class="ms">groups</span>Collaboration</button>
+    </div>
+
+    <div data-stab-panel="ai" class="stack" style="gap:20px">
+    <div>
+      <div class="label-large" style="margin-bottom:8px">AI provider</div>
+      <div class="segmented choice" role="radiogroup">
+        <label class="seg-btn"><input type="radio" name="provider" value="demo"><span class="ms check">check</span><span class="ms icon">science</span>Demo</label>
+        <label class="seg-btn"><input type="radio" name="provider" value="openai"><span class="ms check">check</span><span class="ms icon">hub</span>OpenAI</label>
+        <label class="seg-btn"><input type="radio" name="provider" value="anthropic"><span class="ms check">check</span><span class="ms icon">psychology</span>Claude</label>
+      </div>
+    </div>
+
+    <div data-provider="demo" class="provider-panel">
+      <div class="note"><span class="ms">info</span><span class="body-medium">Demo mode returns canned responses so you can try the workflow without an API key.</span></div>
+    </div>
+
+    <div data-provider="openai" class="provider-panel">
+      <div class="field">
+        <input name="openaiKey" id="s-okey" type="password" autocomplete="off" placeholder="sk-…">
+        <label for="s-okey">OpenAI API key</label>
+      </div>
+      <div class="field">
+        <input name="openaiModel" id="s-omodel" list="openaiModels" placeholder=" ">
+        <label for="s-omodel">Model</label>
+        <span class="supporting">Must support JSON-schema structured outputs, e.g. gpt-5, gpt-4.1, gpt-4o.</span>
+      </div>
+      <datalist id="openaiModels"><option value="gpt-5"><option value="gpt-5-mini"><option value="gpt-4.1"><option value="gpt-4o"></datalist>
+      <div class="field">
+        <input name="openaiBaseUrl" id="s-ourl" placeholder=" ">
+        <label for="s-ourl">API base URL</label>
+        <span class="supporting">Change for Azure OpenAI, a proxy, or a local OpenAI-compatible server.</span>
+      </div>
+      <div class="field select">
+        <select name="openaiReasoningEffort" id="s-oeffort">
+          <option value="">Don't send (non-reasoning models)</option>
+          <option value="low">Low</option><option value="medium">Medium</option><option value="high">High</option>
+        </select>
+        <label for="s-oeffort">Reasoning effort</label>
+      </div>
+
+      <div class="subsection">
+        <div class="row between">
+          <span class="title-small">Custom headers</span>
+          <button type="button" id="addHeaderBtn" class="btn sm text"><span class="ms">add</span>Add header</button>
+        </div>
+        <span class="body-small variant">Sent with every OpenAI request, e.g. <span class="mono">api-key</span> for Azure OpenAI or a gateway token.
+          A custom <span class="mono">Authorization</span> header replaces the bearer key. Values are handled like API keys.</span>
+        <div id="headerRows" class="header-rows"></div>
+      </div>
+
+      <div class="subsection">
+        <span class="title-small">Client certificate</span>
+        <div class="segmented choice" role="radiogroup">
+          <label class="seg-btn"><input type="radio" name="openaiCertMode" value="none"><span class="ms check">check</span>None</label>
+          <label class="seg-btn"><input type="radio" name="openaiCertMode" value="browser"><span class="ms check">check</span><span class="ms icon">badge</span>Installed (mTLS)</label>
+          <label class="seg-btn"><input type="radio" name="openaiCertMode" value="header"><span class="ms check">check</span><span class="ms icon">key</span>Header</label>
+        </div>
+        <div data-cert="browser" class="note"><span class="ms">info</span><span class="body-small">
+          The browser presents a certificate from the Windows certificate store during the TLS handshake (mutual TLS) and may ask
+          you to pick one. Browsers don't let a page attach a certificate file itself, so install your <span class="mono">.pfx</span>
+          (double-click it). The API gateway must request client certificates and allow credentialed CORS.</span></div>
+        <div data-cert="header" class="stack" style="gap:16px">
+          <span class="body-small variant">For gateways or proxies that read the client certificate from a request header. Only the public
+            certificate is loaded: private keys are stripped and never stored.</span>
+          <div id="certCard"></div>
+          <div class="actions">
+            <button type="button" id="certLoadBtn" class="btn sm tonal"><span class="ms">upload_file</span>Load certificate</button>
+            <button type="button" id="certRemoveBtn" class="btn sm text danger"><span class="ms">delete</span>Remove</button>
+            <input type="file" id="certFile" accept=".pem,.crt,.cer,.der,.pfx,.p12" hidden>
+          </div>
+          <div class="grid-2">
+            <div class="field">
+              <input name="openaiCertHeader" id="s-certh" placeholder=" ">
+              <label for="s-certh">Header name</label>
+            </div>
+            <div class="field select">
+              <select name="openaiCertFormat" id="s-certf">
+                <option value="der-base64">Base64 DER (single line)</option>
+                <option value="pem-urlencoded">URL-encoded PEM</option>
+              </select>
+              <label for="s-certf">Encoding</label>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div data-provider="anthropic" class="provider-panel">
+      <div class="field">
+        <input name="anthropicKey" id="s-akey" type="password" autocomplete="off" placeholder="sk-ant-…">
+        <label for="s-akey">Anthropic API key</label>
+      </div>
+      <div class="field">
+        <input name="anthropicModel" id="s-amodel" list="anthropicModels" placeholder=" ">
+        <label for="s-amodel">Model</label>
+      </div>
+      <datalist id="anthropicModels"><option value="claude-opus-5"><option value="claude-sonnet-5"><option value="claude-haiku-4-5"></datalist>
+      <div class="field">
+        <input name="anthropicBaseUrl" id="s-aurl" placeholder=" ">
+        <label for="s-aurl">API base URL</label>
+      </div>
+    </div>
+    </div>
+
+    <div data-stab-panel="collab" class="stack hidden" style="gap:20px">
+      <div>
+        <div class="label-large" style="margin-bottom:8px">Where exercises are kept</div>
+        <div class="segmented choice" role="radiogroup">
+          <label class="seg-btn"><input type="radio" name="storage" value="local"><span class="ms check">check</span><span class="ms icon">computer</span>This browser</label>
+          <label class="seg-btn"><input type="radio" name="storage" value="gitlab"><span class="ms check">check</span><span class="ms icon">cloud_sync</span>GitLab (shared)</label>
+        </div>
+      </div>
+
+      <div data-storage="local" class="note"><span class="ms">info</span><span class="body-medium">Exercises and NO DUFF alerts stay in this
+        browser. Other tabs and windows on this computer stay in sync; other people's computers don't.</span></div>
+
+      <div data-storage="gitlab" class="stack" style="gap:20px">
+        <span class="body-small variant">Each exercise becomes a private project in your group, and every change is saved as a comment on its
+          state issue, so edits merge and GitLab keeps the audit trail. NO DUFF alerts are issues in a shared Safety project.</span>
+        <div class="field">
+          <input name="gitlabUrl" id="g-url" placeholder="https://gitlab.example.org">
+          <label for="g-url">GitLab URL</label>
+        </div>
+        <div class="grid-2">
+          <div class="field">
+            <input name="gitlabGroup" id="g-group" placeholder="training/exercises">
+            <label for="g-group">Exercise group</label>
+            <span class="supporting">Each exercise gets a project here.</span>
+          </div>
+          <div class="field">
+            <input name="gitlabSafety" id="g-safety" placeholder="training/exercises/safety">
+            <label for="g-safety">Safety project</label>
+            <span class="supporting">Holds NO DUFF issues. Everyone needs access.</span>
+          </div>
+          <div class="field">
+            <input name="gitlabSite" id="g-site" placeholder="e.g. Salisbury Plain">
+            <label for="g-site">Site</label>
+            <span class="supporting">Whole-site NO DUFFs reach everyone at the same site.</span>
+          </div>
+          <div class="field">
+            <input name="gitlabPollSec" id="g-poll" type="number" min="5" max="300" placeholder=" ">
+            <label for="g-poll">Check every (seconds)</label>
+          </div>
+        </div>
+        <div class="field">
+          <input name="gitlabNotify" id="g-notify" placeholder="@training/exercise-staff">
+          <label for="g-notify">Notify on NO DUFF (optional)</label>
+          <span class="supporting">A GitLab @user or @group mentioned in each NO DUFF issue, so GitLab emails them straight away.</span>
+        </div>
+
+        <div class="subsection">
+          <span class="title-small">Sign-in</span>
+          <div class="segmented choice" role="radiogroup">
+            <label class="seg-btn"><input type="radio" name="gitlabAuth" value="token"><span class="ms check">check</span><span class="ms icon">key</span>Access token</label>
+            <label class="seg-btn"><input type="radio" name="gitlabAuth" value="oauth"><span class="ms check">check</span><span class="ms icon">login</span>Sign in with GitLab</label>
+          </div>
+          <div data-auth="token" class="field">
+            <input name="gitlabToken" id="g-token" type="password" autocomplete="off" placeholder="glpat-...">
+            <label for="g-token">Access token</label>
+            <span class="supporting">Personal, group or project access token with the <span class="mono">api</span> scope.</span>
+          </div>
+          <div data-auth="oauth" class="stack" style="gap:12px">
+            <div class="field">
+              <input name="gitlabClientId" id="g-client" placeholder=" ">
+              <label for="g-client">OAuth application ID</label>
+              <span class="supporting">Register a non-confidential application with scope <span class="mono">api</span> and redirect URI <span id="oauthRedirect" class="mono"></span></span>
+            </div>
+            <div class="actions">
+              <button type="button" id="oauthBtn" class="btn tonal sm"><span class="ms">login</span>Sign in with GitLab</button>
+              <span id="oauthStatus" class="body-small variant"></span>
+            </div>
+          </div>
+        </div>
+
+        <div class="actions">
+          <button type="button" id="glTestBtn" class="btn outlined sm"><span class="ms">network_check</span>Test connection</button>
+          <button type="button" id="glCreateSafety" class="btn text sm hidden"><span class="ms">add_moderator</span>Create Safety project</button>
+        </div>
+        <div id="glTestResult"></div>
+      </div>
+    </div>
+
+    <label class="switch">
+      <span><span class="label-large">Remember keys and tokens</span><br><span class="body-small variant">Stores API keys and GitLab sign-in in this browser profile. Otherwise they're kept until the tab closes.</span></span>
+      <input type="checkbox" name="rememberKeys"><span class="track"></span>
+    </label>
+    <div class="note"><span class="ms">lock</span><span class="body-small">Keys are sent only to the API base URL above. Don't enter classified or sensitive real-world data: these are commercial cloud services.</span></div>
+
+    <div class="actions end">
+      <button type="button" id="settingsCancel" class="btn text">Cancel</button>
+      <button class="btn filled">Save</button>
+    </div>
+  </form>
+</dialog>
+
+<!-- ============================================================ offline maps -->
+<dialog id="mapDlg">
+  <form method="dialog" class="dialog-body">
+    <div class="dialog-head" tabindex="-1" autofocus>
+      <span class="ms">layers</span>
+      <h2 class="headline-small">Offline maps</h2>
+      <p class="body-medium variant" style="margin:0">The world outline is always available. For street, contour or satellite detail, add a
+        map of your exercise area. Everything is kept in this browser and works without a network.</p>
+    </div>
+    <div class="subsection">
+      <span class="title-small">Map files</span>
+      <span class="body-small variant">Raster or vector <span class="mono">.pmtiles</span> or <span class="mono">.mbtiles</span> files, e.g. exported from
+        QGIS, MOBAC, Planetiler, tippecanoe or your geospatial team. Vector maps stay sharp at every zoom and follow the light/dark theme.
+        Each computer adds the file once.</span>
+      <div id="packList"></div>
+      <div class="actions">
+        <button type="button" class="btn sm tonal" onclick="document.getElementById('packFile').click()"><span class="ms">upload_file</span>Add map file</button>
+        <input type="file" id="packFile" accept=".pmtiles,.mbtiles" hidden>
+        <span id="packBusy" class="progress hidden"><span class="linear"></span><span class="body-small">Reading map…</span></span>
+      </div>
+    </div>
+    <div class="subsection">
+      <span class="title-small">Tile server on your network</span>
+      <div class="field">
+        <input id="mapUrl" placeholder="https://tiles.example.mil/{z}/{x}/{y}.png  (or .pbf for vector)">
+        <label for="mapUrl">Tile address</label>
+        <span class="supporting">Tiles you view are kept for offline use. Use your own server: public OpenStreetMap servers don't allow bulk downloads.</span>
+      </div>
+      <label class="switch"><span class="label-large">Keep viewed tiles for offline use</span><input type="checkbox" id="mapKeep"><span class="track"></span></label>
+      <div class="actions"><button type="button" id="mapCacheArea" class="btn sm outlined"><span class="ms">download_for_offline</span>Keep this area offline</button></div>
+    </div>
+    <div class="subsection">
+      <span class="title-small">Map file on a web server</span>
+      <div class="field">
+        <input id="mapPackUrl" placeholder="maps/exercise-area.pmtiles">
+        <label for="mapPackUrl">PMTiles address</label>
+        <span class="supporting">For example, a PMTiles file committed alongside the app on GitLab Pages, so nobody has to add it by hand.</span>
+      </div>
+    </div>
+    <div id="mapDlgError" class="note hidden" style="background:var(--md-error-container);color:var(--md-on-error-container)"></div>
+    <div class="actions end">
+      <button type="button" class="btn text" data-close>Cancel</button>
+      <button type="button" id="mapSaveBtn" class="btn filled">Save</button>
+    </div>
+  </form>
+</dialog>
+
+<!-- ============================================================ RED plan -->
+<dialog id="redPlanDlg">
+  <form id="redPlanForm" class="dialog-body">
+    <div class="dialog-head" tabindex="-1" autofocus>
+      <span class="ms" style="color:var(--md-error)">crisis_alert</span>
+      <h2 class="headline-small">RED plan</h2>
+      <p class="body-medium variant" style="margin:0">What the opposing force is trying to achieve. The RED AI follows it exactly; a human RED cell
+        can be sent it as their brief.</p>
+    </div>
+    <div class="actions"><button type="button" id="planDraft" class="btn sm tonal"><span class="ms">auto_awesome</span>Draft with AI</button>
+      <span id="planBusy" class="progress hidden"><span class="linear"></span><span class="body-small">Drafting…</span></span></div>
+    <div class="field">
+      <textarea name="intent" id="rp-intent" rows="3" required placeholder="Purpose, method and end state"></textarea>
+      <label for="rp-intent">Commander's intent</label>
+    </div>
+    <div class="subsection">
+      <div class="row between"><span class="title-small">Objectives</span><button type="button" id="planAddObj" class="btn sm text"><span class="ms">add</span>Add</button></div>
+      <div id="planObjectives" class="stack" style="gap:12px"></div>
+    </div>
+    <div class="field">
+      <textarea name="constraints" id="rp-cons" rows="4" placeholder="One per line, e.g. Do not cross PL VARDA before T+2:00"></textarea>
+      <label for="rp-cons">Constraints (one per line)</label>
+      <span class="supporting">Political limits, ROE, timings, and anything RED must not do so the exercise keeps its training value.</span>
+    </div>
+    <div>
+      <div class="label-medium variant" style="margin-bottom:6px">Posture</div>
+      <div class="segmented choice" role="radiogroup">
+        <label class="seg-btn"><input type="radio" name="posture" value="aggressive"><span class="ms check">check</span>Aggressive</label>
+        <label class="seg-btn"><input type="radio" name="posture" value="balanced"><span class="ms check">check</span>Balanced</label>
+        <label class="seg-btn"><input type="radio" name="posture" value="defensive"><span class="ms check">check</span>Defensive</label>
+        <label class="seg-btn"><input type="radio" name="posture" value="deceptive"><span class="ms check">check</span>Deceptive</label>
+      </div>
+    </div>
+    <div class="actions end">
+      <button type="button" class="btn text" data-close>Cancel</button>
+      <button class="btn outlined" data-send><span class="ms">forward_to_inbox</span>Save and send to RED</button>
+      <button class="btn filled">Save</button>
+    </div>
+  </form>
+</dialog>
+
+<!-- ============================================================ combat rules tables -->
+<dialog id="rulesDlg" class="wide">
+  <form id="rulesForm" class="dialog-body">
+    <div class="dialog-head" tabindex="-1" autofocus>
+      <span class="ms">casino</span>
+      <h2 class="headline-small">Combat rules</h2>
+      <p class="body-medium variant" style="margin:0">The tables behind rules-based adjudication for this exercise. The numbers decide the result;
+        the AI only describes it. They're planning-level figures for training: adjust them to your doctrine and scenario.</p>
+    </div>
+    <div id="rulesBody" class="stack"></div>
+    <div class="actions end">
+      <button type="button" id="rulesReset" class="btn text">Reset to defaults</button>
+      <button type="button" class="btn text" data-close>Cancel</button>
+      <button class="btn filled">Save</button>
+    </div>
+  </form>
+</dialog>
+
+<!-- ============================================================ inject editor -->
+<dialog id="injDlg">
+  <form id="injForm" class="dialog-body">
+    <div class="dialog-head" tabindex="-1" autofocus>
+      <span class="ms">edit_calendar</span>
+      <h2 id="injDlgTitle" class="headline-small">Inject</h2>
+    </div>
+    <div class="field"><input name="title" id="inj-title" placeholder=" "><label for="inj-title">Title</label></div>
+    <div class="grid-2">
+      <div class="field"><input name="time" id="inj-time" type="number" min="0" step="5" placeholder=" "><label for="inj-time">Time (minutes after STARTEX)</label></div>
+      <div class="field select"><select name="method" id="inj-method"></select><label for="inj-method">Method</label></div>
+    </div>
+    <div class="grid-3">
+      <div class="field"><input name="from_role" id="inj-from" list="roleNames" placeholder=" "><label for="inj-from">From</label><datalist id="roleNames"></datalist></div>
+      <div class="field"><input name="to_audience" id="inj-to" placeholder=" "><label for="inj-to">To</label></div>
+      <div class="field select"><select name="cell" id="inj-cell"><option value="blue">BLUE cell</option><option value="red">RED cell</option><option value="excon">EXCON only</option></select><label for="inj-cell">Deliver to</label></div>
+    </div>
+    <div class="field"><textarea name="description" id="inj-desc" rows="3" placeholder=" "></textarea><label for="inj-desc">What the players receive</label></div>
+    <div class="field"><textarea name="expected_action" id="inj-exp" rows="2" placeholder=" "></textarea><label for="inj-exp">Expected action</label></div>
+    <div><div class="label-medium variant" style="margin-bottom:6px">Training objectives</div><div id="injObjectives" class="chip-set"></div></div>
+    <div class="subsection">
+      <span class="title-small">Dependency or branch</span>
+      <div class="field select"><select name="dep" id="inj-dep"></select><label for="inj-dep">Release after</label></div>
+      <div id="injDepFields" class="grid-2 hidden">
+        <div class="field select"><select name="on" id="inj-on">
+          <option value="released">it is released</option><option value="acknowledged">it is acknowledged</option><option value="skipped">it is skipped (branch)</option>
+        </select><label for="inj-on">When</label></div>
+        <div class="field"><input name="delay" id="inj-delay" type="number" min="0" step="5" value="0" placeholder=" "><label for="inj-delay">Delay (min)</label></div>
+      </div>
+      <span class="body-small variant">For a branch, make one inject follow another being released and an alternative follow it being skipped.
+        Only the branch that happens is released.</span>
+      <div class="field"><textarea name="condition" id="inj-cond" rows="2" placeholder="e.g. Only if BLUE has not secured the Orvan bridge"></textarea><label for="inj-cond">Release condition (optional)</label>
+        <span class="supporting">An inject with a condition waits for EXCON to decide when it's due. The AI can check the log for you.</span></div>
+      <label class="switch"><span class="label-large">Release automatically when due (if auto-release is on)</span><input type="checkbox" name="auto" checked><span class="track"></span></label>
+    </div>
+    <div id="injError" class="body-small hidden" style="color:var(--md-error)"></div>
+    <div class="actions end">
+      <button type="button" id="injDelete" class="btn text danger"><span class="ms">delete</span>Delete</button>
+      <span class="spacer"></span>
+      <button type="button" class="btn text" data-close>Cancel</button>
+      <button class="btn filled">Save</button>
+    </div>
+  </form>
+</dialog>
+
+<!-- ============================================================ doctrine library -->
+<dialog id="libDlg" class="wide">
+  <form method="dialog" class="dialog-body">
+    <div class="dialog-head" tabindex="-1" autofocus>
+      <span class="ms">menu_book</span>
+      <h2 class="headline-small">Doctrine library</h2>
+      <p class="body-medium variant" style="margin:0">Your doctrine, SOPs, ROE cards and past lessons. The AI is given the passages that best match each
+        request and cites them, so you can check every point against the source. Search runs in this browser and works offline.</p>
+    </div>
+    <div class="subsection">
+      <div class="row between"><span class="title-small">Documents</span><span id="libCount" class="body-small variant"></span></div>
+      <div id="libList" class="stack" style="gap:8px"></div>
+      <div class="actions">
+        <div class="field select compact-select"><select id="libKind" aria-label="Type of document">
+          <option value="doctrine">Doctrine</option><option value="sop">SOP</option><option value="roe">ROE / legal</option><option value="lessons">Lessons</option><option value="reference">Reference</option>
+        </select></div>
+        <button type="button" id="libAddBtn" class="btn sm tonal"><span class="ms">upload_file</span>Add files</button>
+        <button type="button" id="libPasteBtn" class="btn sm text"><span class="ms">content_paste</span>Paste text</button>
+        <input type="file" id="libFile" accept=".txt,.md,.markdown,.html,.htm,.docx,.pdf,.csv,.json" multiple hidden>
+        <span id="libBusy" class="progress hidden"><span class="linear"></span><span class="body-small">Reading…</span></span>
+      </div>
+      <span class="body-small variant">Word (.docx), PDF with a text layer, HTML, Markdown and plain text. Headings and numbered paragraphs are kept, so
+        citations point to the right section.</span>
+      <div id="libPaste" class="stack hidden">
+        <div class="field"><input id="libPasteTitle" placeholder=" "><label for="libPasteTitle">Title</label></div>
+        <div class="field"><textarea id="libPasteText" rows="6" placeholder=" "></textarea><label for="libPasteText">Text</label></div>
+        <div><button type="button" id="libPasteAdd" class="btn sm filled"><span class="ms">add</span>Add to library</button></div>
+      </div>
+      <div id="libError" class="note hidden" style="background:var(--md-error-container);color:var(--md-on-error-container)"></div>
+    </div>
+    <div class="subsection">
+      <span class="title-small">Examples</span>
+      <span class="body-small variant">Ten invented example documents (EXCON handbook, HQ SOPs, planning, intelligence reporting, ROE card, CIMIC,
+        media handling, sustainment and CASEVAC, an adjudication guide and a past exercise's lessons) show what works well. They're not
+        official publications: replace them with your own.</span>
+      <div class="actions">
+        <button type="button" id="libExamplesAdd" class="btn sm tonal"><span class="ms">auto_stories</span>Add example documents</button>
+        <button type="button" id="libExamplesRemove" class="btn sm text"><span class="ms">delete_sweep</span>Remove examples</button>
+      </div>
+      <details class="lib-guide">
+        <summary class="label-large">How to write documents that work well</summary>
+        <ul class="bullets body-small">
+          <li><strong>Use headings.</strong> Start a heading line with # in text files, or use Word's Heading styles. Each heading starts a new section, and citations name it.</li>
+          <li><strong>Number your paragraphs</strong> (1.1, 1.2…). Citations then point to the exact paragraph.</li>
+          <li><strong>One topic per section.</strong> The AI is given the best-matching sections, not whole documents, so a focused section is found more easily.</li>
+          <li><strong>Use the words your staff use:</strong> SITREP, RFI, CASEVAC, holding line. Search matches words, not meanings, so say "casualty evacuation" as well as "CASEVAC".</li>
+          <li><strong>State the standard plainly</strong>, with numbers where you have them: "within 15 minutes", "below 50%", "about 3:1". The AI can then judge the players against it.</li>
+          <li><strong>Check with Try a search</strong> using the words a player or controller would use.</li>
+        </ul>
+      </details>
+    </div>
+    <div class="subsection">
+      <span class="title-small">Try a search</span>
+      <div class="field"><input id="libSearch" placeholder="e.g. casualty evacuation priorities"><label for="libSearch">What the AI would look up</label></div>
+      <div id="libSearchOut" class="stack" style="gap:8px"></div>
+    </div>
+    <div class="subsection">
+      <span class="title-small">Share</span>
+      <span class="body-small variant">The library is kept in this browser. Export it to give other EXCON staff the same library.</span>
+      <div class="actions">
+        <button type="button" id="libExport" class="btn sm outlined"><span class="ms">download</span>Export library</button>
+        <button type="button" id="libImport" class="btn sm outlined"><span class="ms">upload</span>Import library</button>
+        <input type="file" id="libImportFile" accept=".json,application/json" hidden>
+      </div>
+    </div>
+    <div class="actions end"><button class="btn filled">Done</button></div>
+  </form>
+</dialog>
+
+<!-- ============================================================ cell lock PIN -->
+<dialog id="pinDlg">
+  <form id="pinForm" class="dialog-body">
+    <div class="dialog-head" tabindex="-1" autofocus>
+      <span class="ms">lock</span>
+      <h2 id="pinTitle" class="headline-small">Unlock</h2>
+      <p id="pinText" class="body-medium variant" style="margin:0"></p>
+    </div>
+    <div class="field">
+      <input name="pin" id="pin-in" type="password" inputmode="numeric" autocomplete="off" required minlength="4" placeholder=" ">
+      <label for="pin-in">PIN</label>
+    </div>
+    <div id="pinError" class="body-small hidden" style="color:var(--md-error)"></div>
+    <div class="actions end">
+      <button type="button" class="btn text" data-close>Cancel</button>
+      <button id="pinOk" class="btn filled">Unlock</button>
+    </div>
+  </form>
+</dialog>
+
+<!-- ============================================================ inject acknowledgement -->
+<dialog id="ackDlg">
+  <form id="ackForm" class="dialog-body">
+    <div class="dialog-head" tabindex="-1" autofocus>
+      <span class="ms">mark_email_read</span>
+      <h2 class="headline-small">Acknowledge inject</h2>
+      <p id="ackSummary" class="body-medium variant" style="margin:0"></p>
+    </div>
+    <div class="field">
+      <input name="by" id="ack-by" required placeholder=" ">
+      <label for="ack-by">Acknowledged by (cell / appointment)</label>
+    </div>
+    <div class="field">
+      <input name="note" id="ack-note" placeholder="e.g. Received by J3 watchkeeper, passing to plans">
+      <label for="ack-note">Note (optional)</label>
+    </div>
+    <input type="hidden" name="inj">
+    <div class="actions end">
+      <button type="button" class="btn text" data-close>Cancel</button>
+      <button class="btn filled"><span class="ms">done_all</span>Acknowledge</button>
+    </div>
+  </form>
+</dialog>
+
+<!-- ============================================================ NO DUFF -->
+<dialog id="noDuffDlg" class="noduff-dlg">
+  <form id="noDuffForm" class="dialog-body">
+    <div class="dialog-head" tabindex="-1" autofocus>
+      <span class="ms">emergency_home</span>
+      <h2 class="headline-small">Declare NO DUFF</h2>
+      <p class="body-medium variant" style="margin:0">Use only for a <strong>real-world emergency</strong>. Play stops immediately and
+        the alert appears on every screen in scope. Always call NO DUFF by voice or radio as well.</p>
+    </div>
+    <div>
+      <div class="label-large" style="margin-bottom:8px">Who does this affect?</div>
+      <div class="segmented choice" role="radiogroup">
+        <label class="seg-btn"><input type="radio" name="scope" value="exercise" checked><span class="ms check">check</span><span class="ms icon">flag</span>This exercise</label>
+        <label class="seg-btn"><input type="radio" name="scope" value="site"><span class="ms check">check</span><span class="ms icon">location_city</span>Whole site</label>
+      </div>
+    </div>
+    <div class="field select">
+      <select name="nature" id="nd-nature">
+        <option>Medical emergency</option><option>Injury / casualty</option><option>Fire</option><option>Vehicle accident</option>
+        <option>Security incident</option><option>Severe weather</option><option>Missing person</option><option>Other</option>
+      </select>
+      <label for="nd-nature">Nature of emergency</label>
+    </div>
+    <div class="field">
+      <input name="location" id="nd-loc" required placeholder="Building, grid, room…">
+      <label for="nd-loc">Location</label>
+    </div>
+    <div class="field">
+      <textarea name="instructions" id="nd-ins" rows="3" placeholder="e.g. All players remain in place. Medics to Ops Room 2. Keep radio net clear."></textarea>
+      <label for="nd-ins">Instructions to all participants</label>
+    </div>
+    <div class="field">
+      <input name="raisedBy" id="nd-by" required value="EXCON" placeholder=" ">
+      <label for="nd-by">Declared by</label>
+    </div>
+    <div class="actions end">
+      <button type="button" class="btn text" data-close>Cancel</button>
+      <button class="btn noduff"><span class="ms">emergency_home</span>Declare NO DUFF</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="standDownDlg">
+  <form id="standDownForm" class="dialog-body">
+    <div class="dialog-head" tabindex="-1" autofocus>
+      <span class="ms">check_circle</span>
+      <h2 class="headline-small">Stand down NO DUFF</h2>
+      <p id="standDownSummary" class="body-medium variant" style="margin:0"></p>
+    </div>
+    <input type="hidden" name="nd">
+    <div class="field">
+      <input name="by" id="sd-by" required placeholder=" ">
+      <label for="sd-by">Authorised by</label>
+    </div>
+    <div class="field">
+      <input name="note" id="sd-note" placeholder="e.g. Casualty evacuated, area clear">
+      <label for="sd-note">Outcome (optional)</label>
+    </div>
+    <div class="actions end">
+      <button type="button" class="btn text" data-close>Cancel</button>
+      <button class="btn filled"><span class="ms">check</span>Stand down</button>
+    </div>
+  </form>
+</dialog>
+
+<div id="noDuffOverlay" class="noduff-overlay hidden" role="alertdialog" aria-modal="true" aria-labelledby="ndTitle" aria-live="assertive"></div>
+
+<div id="toast" class="snackbar hidden" role="status" aria-live="polite"><span class="ms" id="toastIcon">check_circle</span><span id="toastText"></span></div>
+
+<script src="vendor/leaflet/leaflet.js"></script>
+<script src="vendor/pmtiles.js"></script>
+<script src="vendor/sql-wasm.js"></script>
+<script src="vendor/sql-wasm-binary.js"></script>
+<script src="vendor/topojson-client.min.js"></script>
+<script src="vendor/world-50m.js"></script>
+<script src="js/store.js"></script>
+<script src="js/schemas.js"></script>
+<script src="js/prompts.js"></script>
+<script src="js/mock.js"></script>
+<script src="js/cert.js"></script>
+<script src="js/sync.js"></script>
+<script src="js/llm.js"></script>
+<script src="js/app.js"></script>
+<script src="js/vector.js"></script>
+<script src="js/map.js"></script>
+<script src="js/rules.js"></script>
+<script src="js/timeline.js"></script>
+<script src="js/samples.js"></script>
+<script src="js/library.js"></script>
+</body>
+</html>
